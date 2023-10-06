@@ -27,9 +27,9 @@ from optimum.utils.testing_utils import TOKEN
 @requires_neuronx
 def test_model_from_hub():
     model = NeuronModelForCausalLM.from_pretrained(
-        "dacorvo/tiny-random-gpt2-neuronx", revision="b8f1aec89f9b278721068bfe616fa9227c1d0238"
+        "dacorvo/tiny-random-gpt2-neuronx", revision="1a6990ebdb0092df1191fc0cf89e522c84022234"
     )
-    check_neuron_model(model, batch_size=16, num_cores=2, auto_cast_type="fp32")
+    check_neuron_model(model, batch_size=16, sequence_length=512, num_cores=2, auto_cast_type="fp32")
 
 
 @is_inferentia_test
