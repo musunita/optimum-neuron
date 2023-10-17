@@ -14,15 +14,37 @@
 # limitations under the License.
 """Custom operations related to accelerate for Neuron."""
 
+from typing import Optional
+
 import torch
 from accelerate.utils.operations import recursively_apply
 
+from ...utils import is_neuronx_distributed_available
 from ...utils.require_utils import requires_torch_xla
 
 
 @requires_torch_xla
-def _xla_gather(tensor, out_of_graph: bool = False):
+def _xla_gather(tensor, out_of_graph: bool = False, gather_axis: Optional[str] = None):
     import torch_xla.core.xla_model as xm
+
+    # if gather_axis is not None:
+    #     if gather_axis not in ["dp", "tp", "pp"]:
+    #         raise ValueError(f'Wrong value for gather_axis ({gather_axis}), expected: "dp", "tp" or "pp"')
+    #     if not is_neuronx_distributed_available():
+    #         raise RuntimeError("The `neuronx_distributed` package is required.")
+
+    #     from neuronx_distributed.parallel_layers.parallel_state import (
+    #             get_tensor_model_parallel_group,
+    #             get_data_parallel_group,
+    #     )
+    #     axis2groups = {
+    #         "dp": get_data_parallel_group(as_list=True),
+    #         "tp": get_tensor_model_parallel_group(as_list=True),
+    #     }
+    #     groups = axis2groups[gather_axis]
+    # else:
+    #     groups = None
+    groups = None
 
     def _xla_gather_one(tensor):
         if tensor.ndim == 0:
@@ -32,7 +54,22 @@ def _xla_gather(tensor, out_of_graph: bool = False):
             tensor = tensor.contiguous()
 
         if out_of_graph:
-            gathered = xm.mesh_reduce("nested_xla_gather", tensor, torch.cat)
+            gathered = xm.mesh_reduce("nested_xla_gather", tensor, lambda x: x)
+            if groups is not None:
+                new_gathered = []
+                visited_replicas = set()
+                for idx, tensor in enumerate(gathered):
+                    for replica_idx, group in enumerate(groups):
+                        if idx in group:
+                            if replica_idx in visited_replicas:
+                                continue
+                            else:
+                                new_gathered.append(tensor)
+                                visited_replicas.add(replica_idx)
+                print("Gathered", gathered)
+                print("New gathered", new_gathered)
+                gathered = new_gathered
+            gathered = torch.cat(gathered)
         else:
             gathered = xm.all_gather(tensor)
         return gathered

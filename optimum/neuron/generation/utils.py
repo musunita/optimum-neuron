@@ -1269,6 +1269,8 @@ class NeuronGenerationMixin(GenerationMixin):
             else:
                 next_token_logits = outputs.logits[:, -1, :]
 
+            xm.mark_step()
+
             # pre-process distribution
             # Move to cpu to handle arbitrary logits_processor
             next_tokens_scores = logits_processor(input_ids.to("cpu")[:, :seq_length], next_token_logits.to("cpu"))

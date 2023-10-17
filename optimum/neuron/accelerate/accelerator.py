@@ -515,10 +515,10 @@ class NeuronAccelerator(Accelerator):
             return self.save_state_for_tp(output_dir=output_dir, **save_model_func_kwargs)
         return super().save_state(output_dir=output_dir, **save_model_func_kwargs)
 
-    def gather(self, tensor, out_of_graph: bool = False):
-        return _xla_gather(tensor, out_of_graph=out_of_graph)
+    def gather(self, tensor, out_of_graph: bool = False, gather_axis: Optional[str] = None):
+        return _xla_gather(tensor, out_of_graph=out_of_graph, gather_axis=gather_axis)
 
-    def gather_for_metrics(self, input_data):
+    def gather_for_metrics(self, input_data, gather_axis: Optional[str] = None):
         try:
             recursively_apply(lambda x: x, input_data, error_on_other_type=True)
             all_tensors = True
@@ -529,7 +529,7 @@ class NeuronAccelerator(Accelerator):
             data = gather_object(input_data)
         else:
             # It is needed to perform out-of-graph gather otherwise re-compilation happens at every evaluation step.
-            data = self.gather(input_data, out_of_graph=True)
+            data = self.gather(input_data, out_of_graph=True, gather_axis=gather_axis)
 
         try:
             if self.gradient_state.end_of_dataloader:
